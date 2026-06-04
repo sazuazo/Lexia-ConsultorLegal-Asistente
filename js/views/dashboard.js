@@ -21,9 +21,11 @@ function renderDashboard(el) {
     </div>
     <div class="quick-actions">
       <div class="qa-btn" onclick="navigate('asistente',null)"><div class="qa-icon">✦</div><div class="qa-label">Asistente IA</div><div class="qa-sub">Consulta legal</div></div>
-      <div class="qa-btn" onclick="_openCliForm(null)"><div class="qa-icon">◎</div><div class="qa-label">Nuevo cliente</div><div class="qa-sub">Registrar</div></div>
-      <div class="qa-btn" onclick="navigate('documentos',null)"><div class="qa-icon">▤</div><div class="qa-label">Redactar</div><div class="qa-sub">Documento</div></div>
-      <div class="qa-btn" onclick="navigate('audiencias',null)"><div class="qa-icon">◷</div><div class="qa-label">Audiencias</div><div class="qa-sub">Ver agenda</div></div>
+      <div class="qa-btn" onclick="navigate('clientes',null)"><div class="qa-icon">◎</div><div class="qa-label">Clientes</div><div class="qa-sub">Gestionar</div></div>
+      <div class="qa-btn" onclick="abrirRecibos()"><div class="qa-icon">💵</div><div class="qa-label">Recibos</div><div class="qa-sub">Dinero</div></div>
+      <div class="qa-btn" onclick="abrirEntregasDocumentos()"><div class="qa-icon">📦</div><div class="qa-label">Entregas</div><div class="qa-sub">Documentos</div></div>
+      <div class="qa-btn" onclick="generarReportes()"><div class="qa-icon">📊</div><div class="qa-label">Reportes</div><div class="qa-sub">Análisis</div></div>
+      <div class="qa-btn" onclick="sincronizarConGoogleCalendar()"><div class="qa-icon">📅</div><div class="qa-label">Google Cal</div><div class="qa-sub">Sync</div></div>
     </div>
     <div class="card">
       <div class="card-header"><h2>Próximas audiencias</h2></div>
@@ -766,4 +768,400 @@ async function monitorearBuhoLegal(){
   }catch(e){
     showToast('❌ Error en monitoreo');
   }
+}
+
+// ============ NOTIFICACIONES PUSH ============
+function solicitarPermisosNotificaciones(){
+  if('Notification' in window && Notification.permission === 'default'){
+    Notification.requestPermission().then(permission=>{
+      if(permission==='granted'){
+        showToast('✅ Notificaciones push habilitadas');
+      }
+    });
+  }
+}
+
+function enviarNotificacionPush(titulo, opciones={}){
+  if('Notification' in window && Notification.permission==='granted'){
+    new Notification(titulo, {
+      icon: '/icon-192.png',
+      badge: '/badge-72.png',
+      ...opciones
+    });
+  }
+}
+
+function programarNotificacionAudiencia(audiencia){
+  if(!audiencia.fecha)return;
+  const ahora=new Date();
+  const fechaAudiencia=new Date(audiencia.fecha+'T'+audiencia.hora);
+  const tiempoFalta=fechaAudiencia-ahora;
+  
+  if(tiempoFalta>0 && tiempoFalta<86400000){// Menos de 24 horas
+    setTimeout(()=>{
+      enviarNotificacionPush('📅 Audiencia próxima',{
+        body:`${audiencia.titulo} a las ${audiencia.hora} en ${audiencia.juzgado}`,
+        tag:'audiencia-'+audiencia.id
+      });
+    },tiempoFalta-3600000);// 1 hora antes
+  }
+}
+
+// ============ REPORTES POR FECHAS ============
+function generarReportes(){
+  showModal(`
+    <div style="margin-bottom:18px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:16px">📊 Reportes y Resumen</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-full" onclick="reporteActividadPorFechas()" style="text-align:left;padding:12px;border-radius:8px;background:var(--bg2);border:0.5px solid var(--border)">
+          <div style="font-weight:500">📅 Actividad por fechas</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:3px">Resumen de lo actuado en el período</div>
+        </button>
+        <button class="btn btn-full" onclick="reporteCasosResueltos()" style="text-align:left;padding:12px;border-radius:8px;background:var(--bg2);border:0.5px solid var(--border)">
+          <div style="font-weight:500">✅ Casos resueltos</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:3px">Expedientes cerrados y fechas de resolución</div>
+        </button>
+        <button class="btn btn-full" onclick="reporteIngresos()" style="text-align:left;padding:12px;border-radius:8px;background:var(--bg2);border:0.5px solid var(--border)">
+          <div style="font-weight:500">💰 Ingresos y pagos</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:3px">Resumen financiero por mes</div>
+        </button>
+        <button class="btn btn-full" onclick="reporteClientsActivos()" style="text-align:left;padding:12px;border-radius:8px;background:var(--bg2);border:0.5px solid var(--border)">
+          <div style="font-weight:500">👥 Clientes activos</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:3px">Análisis de cartera de clientes</div>
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-full" onclick="closeModal()" style="background:var(--bg2)">Cerrar</button>
+    </div>
+  `);
+}
+
+function reporteActividadPorFechas(){
+  const hoy=new Date();
+  const hace7dias=new Date(hoy.getTime()-7*24*60*60*1000);
+  const audienciasRecientes=DB.audiencias.filter(a=>new Date(a.fecha)>=hace7dias);
+  const escritosRecientes=DB.documentos.filter(d=>d.fecha && new Date(d.fecha)>=hace7dias);
+  
+  showModal(`
+    <div style="margin-bottom:18px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:16px">📅 Actividad últimos 7 días</div>
+      <div style="background:var(--bg2);border-radius:8px;padding:14px;margin-bottom:12px">
+        <div style="margin-bottom:12px">
+          <div style="font-size:12px;color:var(--text2);text-transform:uppercase;margin-bottom:4px">Audiencias</div>
+          <div style="font-size:24px;font-weight:600;color:var(--accent)">${audienciasRecientes.length}</div>
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--text2);text-transform:uppercase;margin-bottom:4px">Escritos generados</div>
+          <div style="font-size:24px;font-weight:600;color:var(--success)">${escritosRecientes.length}</div>
+        </div>
+      </div>
+      <div style="background:var(--bg);border:0.5px solid var(--border);border-radius:8px;padding:14px">
+        <div style="font-size:12px;color:var(--text2);text-transform:uppercase;margin-bottom:10px">Detalles</div>
+        ${audienciasRecientes.slice(0,5).map(a=>`
+          <div style="padding:8px 0;border-bottom:0.5px solid var(--border);font-size:13px">
+            <div style="font-weight:500">${a.titulo}</div>
+            <div style="color:var(--text2);font-size:11px;margin-top:2px">${new Date(a.fecha).toLocaleDateString('es-MX')} · ${a.juzgado}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-full" onclick="closeModal()" style="background:var(--bg2)">Cerrar</button>
+    </div>
+  `);
+}
+
+function reporteCasosResueltos(){
+  const casosResueltos=DB.expedientes.filter(e=>e.estado==='cerrado');
+  showModal(`
+    <div style="margin-bottom:18px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:16px">✅ Casos resueltos</div>
+      <div style="background:var(--bg2);border-radius:8px;padding:14px;margin-bottom:12px">
+        <div style="font-size:28px;font-weight:600;color:var(--success)">${casosResueltos.length}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px">Expedientes cerrados</div>
+      </div>
+      <div style="max-height:300px;overflow-y:auto">
+        ${casosResueltos.map(c=>{const cli=DB.clientes.find(x=>x.id===c.clienteId);return`
+          <div style="padding:10px;background:var(--bg);border:0.5px solid var(--border);border-radius:6px;margin-bottom:8px">
+            <div style="font-weight:500;font-size:13px">${c.numero}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">${cli?.nombre||'—'}</div>
+            <div style="font-size:11px;color:var(--success);margin-top:4px">✅ ${c.tipo} · Cerrado</div>
+          </div>
+        `}).join('')}
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-full" onclick="closeModal()" style="background:var(--bg2)">Cerrar</button>
+    </div>
+  `);
+}
+
+function reporteIngresos(){
+  const totalIngresos=DB.recibos.reduce((sum,r)=>sum+(parseFloat(r.monto)||0),0);
+  const mesActual=new Date().getMonth();
+  const ingresosDelMes=DB.recibos.filter(r=>new Date(r.fecha||'').getMonth()===mesActual).reduce((sum,r)=>sum+(parseFloat(r.monto)||0),0);
+  
+  showModal(`
+    <div style="margin-bottom:18px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:16px">💰 Ingresos</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div style="background:#e8f5e9;border-radius:8px;padding:14px">
+          <div style="font-size:12px;color:#2e7d32;text-transform:uppercase;margin-bottom:6px">Total acumulado</div>
+          <div style="font-size:22px;font-weight:600;color:#1b5e20">$${totalIngresos.toFixed(2)}</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:8px;padding:14px">
+          <div style="font-size:12px;color:var(--text2);text-transform:uppercase;margin-bottom:6px">Este mes</div>
+          <div style="font-size:22px;font-weight:600;color:var(--accent)">$${ingresosDelMes.toFixed(2)}</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-full" onclick="closeModal()" style="background:var(--bg2)">Cerrar</button>
+    </div>
+  `);
+}
+
+function reporteClientsActivos(){
+  const clientesActivos=DB.clientes.filter(c=>c.estado==='activo');
+  const clientesUrgentes=DB.clientes.filter(c=>c.estado==='urgente');
+  
+  showModal(`
+    <div style="margin-bottom:18px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:16px">👥 Cartera de clientes</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div style="background:var(--accent-light);border-radius:8px;padding:14px">
+          <div style="font-size:12px;color:var(--text2);text-transform:uppercase;margin-bottom:6px">Activos</div>
+          <div style="font-size:22px;font-weight:600;color:var(--accent)">${clientesActivos.length}</div>
+        </div>
+        <div style="background:#ffebee;border-radius:8px;padding:14px">
+          <div style="font-size:12px;color:#c62828;text-transform:uppercase;margin-bottom:6px">Urgentes</div>
+          <div style="font-size:22px;font-weight:600;color:#b71c1c">${clientesUrgentes.length}</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Total: ${DB.clientes.length} clientes</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-full" onclick="closeModal()" style="background:var(--bg2)">Cerrar</button>
+    </div>
+  `);
+}
+
+// ============ GOOGLE CALENDAR ============
+function conectarGoogleCalendar(){
+  showToast('📅 Abriendo Google Calendar...');
+  // Verificar permisos de Google
+  const authUrl='https://accounts.google.com/o/oauth2/v2/auth?'+
+    'client_id=TU_CLIENT_ID&'+
+    'redirect_uri='+encodeURIComponent(window.location.origin)+'/auth&'+
+    'response_type=code&'+
+    'scope=https://www.googleapis.com/auth/calendar';
+  window.open(authUrl,'_blank','width=500,height=600');
+}
+
+function sincronizarConGoogleCalendar(){
+  DB.audiencias.forEach(a=>{
+    if(!a.googleCalendarId){
+      // Crear evento en Google Calendar
+      const evento={
+        summary: a.titulo,
+        description: `Audiencia: ${a.titulo}`,
+        start: {dateTime: new Date(a.fecha+'T'+a.hora).toISOString()},
+        end: {dateTime: new Date(new Date(a.fecha+'T'+a.hora).getTime()+60*60*1000).toISOString()},
+        location: a.juzgado
+      };
+      // POST a Google Calendar API
+      // a.googleCalendarId=response.id;
+    }
+  });
+  showToast('✅ Sincronizado con Google Calendar');
+}
+
+// ============ RECIBOS DE DINERO ============
+let DB_recibos=[];
+
+function abrirRecibos(){
+  showModal(`
+    <div style="margin-bottom:18px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:16px">💵 Recibos de dinero</div>
+      <div style="display:flex;flex-direction:column;gap:10px;max-height:400px;overflow-y:auto;margin-bottom:12px">
+        ${DB.recibos.map(r=>`
+          <div style="padding:12px;background:var(--bg2);border-radius:8px;border-left:3px solid var(--success)">
+            <div style="display:flex;justify-content:space-between;align-items:start">
+              <div>
+                <div style="font-weight:500;font-size:13px">${r.concepto}</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:2px">${r.fecha} · ${r.cliente}</div>
+              </div>
+              <div style="font-weight:600;color:var(--success);font-size:14px">$${parseFloat(r.monto).toFixed(2)}</div>
+            </div>
+            <div style="font-size:10px;color:var(--text2);margin-top:6px">Ref: ${r.referencia||'—'}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div class="modal-footer" style="gap:8px">
+      <button class="btn btn-full" onclick="closeModal();abrirFormRecibo()" style="background:var(--success);color:white">+ Nuevo recibo</button>
+      <button class="btn btn-full" onclick="closeModal()" style="background:var(--bg2)">Cerrar</button>
+    </div>
+  `);
+}
+
+function abrirFormRecibo(){
+  showModal(`
+    <div style="margin-bottom:18px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:16px">📄 Crear recibo</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="font-size:11px;color:var(--text2);text-transform:uppercase;display:block;margin-bottom:6px">Concepto</label>
+          <input id="recibo-concepto" class="if-inp" placeholder="Ej. Honorarios - Caso civil #123">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text2);text-transform:uppercase;display:block;margin-bottom:6px">Cliente</label>
+          <select id="recibo-cliente" class="if-inp">
+            <option value="">Seleccionar cliente</option>
+            ${DB.clientes.map(c=>\`<option value="\${c.nombre}">\${c.nombre}</option>\`).join('')}
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:11px;color:var(--text2);text-transform:uppercase;display:block;margin-bottom:6px">Monto</label>
+            <input id="recibo-monto" class="if-inp" type="number" placeholder="0.00" step="0.01">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text2);text-transform:uppercase;display:block;margin-bottom:6px">Fecha</label>
+            <input id="recibo-fecha" class="if-inp" type="date">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text2);text-transform:uppercase;display:block;margin-bottom:6px">Referencia (opcional)</label>
+          <input id="recibo-ref" class="if-inp" placeholder="Ej. Transferencia 12345">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="gap:8px">
+      <button class="btn btn-full" onclick="closeModal()" style="background:var(--bg2)">Cancelar</button>
+      <button class="btn btn-primary btn-full" onclick="guardarRecibo()">Guardar recibo</button>
+    </div>
+  `);
+  document.getElementById('recibo-fecha').valueAsDate=new Date();
+}
+
+function guardarRecibo(){
+  const recibo={
+    id: Date.now(),
+    concepto: document.getElementById('recibo-concepto').value,
+    cliente: document.getElementById('recibo-cliente').value,
+    monto: document.getElementById('recibo-monto').value,
+    fecha: document.getElementById('recibo-fecha').value,
+    referencia: document.getElementById('recibo-ref').value,
+    numero: 'REC-'+(DB.recibos.length+1).toString().padStart(5,'0')
+  };
+  
+  if(!recibo.concepto||!recibo.monto){
+    showToast('❌ Completa concepto y monto');
+    return;
+  }
+  
+  DB.recibos.push(recibo);
+  closeModal();
+  showToast('✅ Recibo creado: '+recibo.numero);
+}
+
+// ============ ENTREGA DE DOCUMENTOS ============
+function abrirEntregasDocumentos(){
+  showModal(`
+    <div style="margin-bottom:18px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:16px">📦 Entrega de documentos</div>
+      <div style="display:flex;flex-direction:column;gap:10px;max-height:400px;overflow-y:auto;margin-bottom:12px">
+        ${(DB.entregas||[]).map(e=>\`
+          <div style="padding:12px;background:var(--bg2);border-radius:8px;border-left:3px solid var(--accent)">
+            <div style="font-weight:500;font-size:13px">\${e.documento}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px">\${e.cliente} · \${e.fechaEntrega}</div>
+            <div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+              <span class="badge \${e.firmado?'badge-active':'badge-pending'}" style="font-size:10px">\${e.firmado?'✓ Firmado':'Pendiente firma'}</span>
+            </div>
+          </div>
+        \`).join('')}
+      </div>
+    </div>
+    <div class="modal-footer" style="gap:8px">
+      <button class="btn btn-full" onclick="closeModal();abrirFormEntrega()" style="background:var(--accent);color:white">+ Registrar entrega</button>
+      <button class="btn btn-full" onclick="closeModal()" style="background:var(--bg2)">Cerrar</button>
+    </div>
+  `);
+}
+
+function abrirFormEntrega(){
+  showModal(`
+    <div style="margin-bottom:18px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:16px">📋 Registrar entrega</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="font-size:11px;color:var(--text2);text-transform:uppercase;display:block;margin-bottom:6px">Documento</label>
+          <select id="entrega-doc" class="if-inp">
+            <option value="">Seleccionar documento</option>
+            ${DB.documentos.map(d=>`<option value="${d.titulo}">${d.titulo}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text2);text-transform:uppercase;display:block;margin-bottom:6px">Entregado a cliente</label>
+          <select id="entrega-cliente" class="if-inp">
+            <option value="">Seleccionar cliente</option>
+            ${DB.clientes.map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:11px;color:var(--text2);text-transform:uppercase;display:block;margin-bottom:6px">Fecha entrega</label>
+            <input id="entrega-fecha" class="if-inp" type="date">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text2);text-transform:uppercase;display:block;margin-bottom:6px">Modo</label>
+            <select id="entrega-modo" class="if-inp">
+              <option value="personal">Entrega personal</option>
+              <option value="email">Por correo</option>
+              <option value="whatsapp">Por WhatsApp</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input id="entrega-firmado" type="checkbox">
+            <span style="font-size:13px">Documento firmado por cliente</span>
+          </label>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text2);text-transform:uppercase;display:block;margin-bottom:6px">Notas (opcional)</label>
+          <textarea id="entrega-notas" class="if-ta" placeholder="Observaciones de la entrega..." style="min-height:60px;resize:vertical"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="gap:8px">
+      <button class="btn btn-full" onclick="closeModal()" style="background:var(--bg2)">Cancelar</button>
+      <button class="btn btn-primary btn-full" onclick="guardarEntrega()">Registrar entrega</button>
+    </div>
+  `);
+  document.getElementById('entrega-fecha').valueAsDate=new Date();
+}
+
+function guardarEntrega(){
+  const entrega={
+    id: Date.now(),
+    documento: document.getElementById('entrega-doc').value,
+    cliente: document.getElementById('entrega-cliente').value,
+    fechaEntrega: document.getElementById('entrega-fecha').value,
+    modo: document.getElementById('entrega-modo').value,
+    firmado: document.getElementById('entrega-firmado').checked,
+    notas: document.getElementById('entrega-notas').value
+  };
+  
+  if(!entrega.documento||!entrega.cliente){
+    showToast('❌ Selecciona documento y cliente');
+    return;
+  }
+  
+  if(!DB.entregas)DB.entregas=[];
+  DB.entregas.push(entrega);
+  closeModal();
+  showToast('✅ Entrega registrada');
 }

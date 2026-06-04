@@ -56,6 +56,12 @@ const DB = {
     { id:4, cliente:'M.E. Torres', monto:8500, fecha:'2024-04-05', metodo:'Pendiente', concepto:'Anticipo testamento', estado:'pendiente' },
   ],
 
+  entregas: [
+    { id:1, documento:'Demanda laboral', cliente:'Juan Martínez', fechaEntrega:'2024-04-28', modo:'personal', firmado:true, notas:'Entregado en persona en oficina' },
+    { id:2, documento:'Escrito de divorcio', cliente:'Ana Rodríguez', fechaEntrega:'2024-04-22', modo:'email', firmado:false, notas:'Enviado por correo electrónico' },
+    { id:3, documento:'Contrato revisado', cliente:'Carlos López', fechaEntrega:'2024-04-15', modo:'whatsapp', firmado:false, notas:'Enviado por WhatsApp a cliente' },
+  ],
+
   alertasBuho: [
     { id:1, exp:'00424/2023', asunto:'TIA FIDE', juzgado:'Cihuatlán — Juzgado Civil', fecha:'2026-04-27', fuente:'alerta_expediente@buholegal.com', revisado:false }
   ]
