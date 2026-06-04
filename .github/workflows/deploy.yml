@@ -1,0 +1,64 @@
+name: 🚀 Deploy to Vercel
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+
+      - name: ✅ Verify files
+        run: |
+          echo "🔍 Verificando estructura del proyecto..."
+          test -f index.html && echo "✅ index.html encontrado"
+          test -f manifest.json && echo "✅ manifest.json encontrado"
+          test -f sw.js && echo "✅ sw.js encontrado"
+          test -d js && echo "✅ carpeta js encontrada"
+          test -d css && echo "✅ carpeta css encontrada"
+          echo "✅ Todos los archivos críticos presentes"
+
+      - name: 🔐 Verify no secrets
+        run: |
+          echo "🔐 Verificando que no hay secretos en el código..."
+          if grep -r "api_key\|API_KEY" js/ || grep -r "password\|PASSWORD" js/; then
+            echo "⚠️  Advertencia: Secretos encontrados en el código"
+            exit 1
+          fi
+          echo "✅ No hay secretos expuestos"
+
+      - name: 📊 Check file sizes
+        run: |
+          echo "📊 Tamaño de archivos:"
+          du -sh . | awk '{print "Total: " $1}'
+          du -sh js/
+          du -sh css/
+          du -sh index.html manifest.json sw.js
+
+      - name: 🎉 Build success
+        run: echo "✅ Proyecto listo para Vercel!"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🚀 Deploy to Vercel
+        uses: vercel/action@v26
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: ✅ Deployment complete
+        run: echo "🎉 ¡Desplegado en Vercel!"

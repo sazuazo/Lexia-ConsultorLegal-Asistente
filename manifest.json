@@ -1,0 +1,22 @@
+{
+  "name": "Lexia — Sistema Legal",
+  "short_name": "Lexia",
+  "description": "Sistema de gestión legal para abogados",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#2C5F8A",
+  "theme_color": "#2C5F8A",
+  "orientation": "portrait-primary",
+  "lang": "es-MX",
+  "categories": ["productivity", "business"],
+  "icons": [
+    { "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%232C5F8A'/%3E%3Ctext x='50%25' y='58%25' dominant-baseline='middle' text-anchor='middle' font-size='110' fill='white'%3E%E2%9A%96%3C/text%3E%3C/svg%3E", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%232C5F8A'/%3E%3Ctext x='50%25' y='58%25' dominant-baseline='middle' text-anchor='middle' font-size='300' fill='white'%3E%E2%9A%96%3C/text%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Clientes", "url": "/?view=clientes" },
+    { "name": "Asistente IA", "url": "/?view=asistente" }
+  ]
+}
